@@ -8,6 +8,7 @@ rangeFeatures <- function(ov, queryRanges, subjectRanges, featureType, allowMiss
     frangedt <- switch(
         featureType,
         categorical = rangeCatFeature(ov, queryRanges, subjectRanges, allowMiss),
+        numerical = rangeNumFeature(ov, queryRanges, subjectRanges, allowMiss),
         stop("Invalid 'featureType'")
     )
 
@@ -21,10 +22,55 @@ getNoOverlapQuery <- function(ov, queryRanges) {
     novdt <- data.table::data.table(
         seqnames = as.character(GenomicRanges::seqnames(queryRanges)[inov]),
         start = GenomicRanges::start(queryRanges)[inov],
-        end = GenomicRanges::end(queryRanges)[inov]
+        end = GenomicRanges::end(queryRanges)[inov],
+        iquery = inov
     )
 
     return(novdt)
+
+}
+
+rangeNumFeature <- function(ov, queryRanges, subjectRanges, allowMiss) {
+
+    # get intersections of overlaps to know the widths
+    intRanges <- GenomicRanges::pintersect(
+        queryRanges[S4Vectors::queryHits(ov)],
+        subjectRanges[S4Vectors::subjectHits(ov)]
+    )
+
+    # gather overlap data
+    ovdt <- data.table::data.table(
+        iquery = S4Vectors::queryHits(ov),
+        ovWidth = GenomicRanges::width(intRanges),
+        feature = subjectRanges$feature[S4Vectors::subjectHits(ov)]
+    )
+    
+    # aggregate signals by query range weighted by overlap size
+    qovdt <- ovdt[, list("wfeature" = sum(feature * ovWidth), "nsitesQuery" = sum(ovWidth)), by = "iquery"]
+
+    # get weighted average of signal per query range
+    if(!allowMiss) qovdt[, "nsitesQuery" := GenomicRanges::width(queryRanges)[iquery]]
+    qovdt[, "feature" := wfeature / nsitesQuery]
+
+    # format data correctly
+    qovdt[, "wfeature" := NULL]
+    qovdt[
+        ,
+        ':=' (
+            "seqnames" = as.character(GenomicRanges::seqnames(queryRanges)[iquery]),
+            "start" = GenomicRanges::start(queryRanges)[iquery],
+            "end" = GenomicRanges::end(queryRanges)[iquery]
+        )
+    ]
+
+    # handle query ranges with no overlap
+    novdt <- getNoOverlapQuery(ov, queryRanges)
+    novdt[, ':=' ("feature" = NA_real_, "nsitesQuery" = 0L)]
+    if (!allowMiss) novdt[, ':=' ("feature" = 0L, "nsitesQuery" = GenomicRanges::width(queryRanges)[iquery])]
+
+    frangedt <- rbind(qovdt[, .SD, .SDcols = names(novdt)], novdt)
+    frangedt[, "iquery" := NULL]
+    return(frangedt)
 
 }
 
