@@ -102,32 +102,47 @@ rangeCatFeature <- function(ov, queryRanges, subjectRanges, allowMiss) {
     novdt[, "feature" := NA_character_]
     if (!allowMiss) novdt[, "feature" := "notAssignable"]
 
-    frangedt <- rbind(ovdt[is.na(duplicate), .SD, .SDcols = -c("duplicate")], dupdt, novdt)
+    frangedt <- rbind(
+        ovdt[is.na(duplicate), .SD, .SDcols = -c("duplicate")],
+        dupdt,
+        novdt[, .SD, .SDcols = -c("iquery")]
+    )
     return(frangedt)
 
 }
 
 #' @export
-txAnnotate <- function(.seqnames, .start, .end, codingStrand, genome) {
+pyriAnnotate <- function(.seqnames, .start, .end, featureStrand, genome) {
 
     rangeSites <- mapply(':', .start, .end, SIMPLIFY = FALSE)
     siteIdxs <- unlist(rangeSites, recursive = FALSE, use.names = FALSE)
 
     n <- sapply(rangeSites, length)
     siteRanges <- GenomicRanges::GRanges(rep(.seqnames, n), IRanges::IRanges(siteIdxs, siteIdxs))
-    txdt <- data.table::data.table(
+    sitedt <- data.table::data.table(
         seqnames = rep(.seqnames, n),
         start = siteIdxs,
         end = siteIdxs,
         ref = as.character(genome[siteRanges], use.names = FALSE),
-        codingStrand = rep(codingStrand, n)
+        featureStrand = rep(featureStrand, n)
     )
+
+    sitedt[, "pyriStrand" := "+"]
+    sitedt[ref %in% c("G", "A"), "pyriStrand" := "-"]
+
+    return(sitedt)
+
+}
+
+txAnnotate <- function(txdt) {
 
     txdt[, ':=' ("pyriStrand" = "+", "txPyri" = "T")]
     txdt[ref %in% c("G", "A"), "pyriStrand" := "-"]
     txdt[pyriStrand == codingStrand, "txPyri" := "U"]
 
-    return(txdt)
+    return()
 
 }
+
+
 
