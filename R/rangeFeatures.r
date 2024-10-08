@@ -2,6 +2,56 @@
 #' @import Biostrings
 #' @importFrom dplyr %>%
 
+# https://www.biostars.org/p/489350/
+withFeatureSdiff <- function(gr1, gr2) {
+
+    # all ranges in .D will overlap exactly once with one and only one range in gr1 if gr1 has non-overlapping ranges
+    adgr <- GenomicRanges::disjoin(c(gr1, gr2))
+    .D <- adgr[!IRanges::overlapsAny(adgr, gr2)]
+
+    dov <- GenomicRanges::findOverlaps(.D, gr1)
+    .D <- .D[S4Vectors::queryHits(dov)]
+    .D$feature <- gr1$feature[S4Vectors::subjectHits(dov)]
+    .D$n <- gr1$n[S4Vectors::subjectHits(dov)]
+
+    return(.D)
+
+}
+
+#' @export
+sumFeature <- function(ov, accgr, newgr) {
+
+    # intersections between overlapping ranges and their sum of feature signal
+    .I <- GenomicRanges::pintersect(accgr[S4Vectors::queryHits(ov)], newgr[S4Vectors::subjectHits(ov)])
+    .I$feature <- accgr$feature[S4Vectors::queryHits(ov)] + newgr$feature[S4Vectors::subjectHits(ov)]
+    .I$n <- accgr$n[S4Vectors::queryHits(ov)] + 1L # 
+
+    # get parts that don't intersect from both overlapping & non-overlapping ranges 
+    d1 <- withFeatureSdiff(accgr, .I)
+    d2 <- withFeatureSdiff(newgr, .I)
+
+    .I$hit <- NULL
+    return(c(.I, d1, d2))
+
+}
+
+#' @export
+frangesLoad <- function(.seq, .dir) {
+
+    .files <- list.files(.dir)
+    chrFile <- .files[grep(paste0("\\b", .seq, "\\b"), .files)]
+    rangesdt <- fread(paste0(.dir, chrFile), nThread = 1)[, .SD, .SDcols = 2:4]
+
+    ranges <- GRanges(
+        rep(.seq, nrow(rangesdt)),
+        IRanges(rangesdt[[1]], rangesdt[[2]]),
+        feature = rangesdt[[3]]
+    )
+
+    return(ranges)
+
+}
+
 #' @export
 rangeFeatures <- function(ov, queryRanges, subjectRanges, featureType, allowMiss = FALSE) {
 
