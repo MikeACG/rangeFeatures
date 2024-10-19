@@ -36,12 +36,14 @@ sumFeature <- function(ov, accgr, newgr) {
 }
 
 #' @export
-frangesLoad <- function(.seq, .dir) {
+frangesLoad <- function(.seq, .dir, oneBased = TRUE) {
 
     .files <- list.files(.dir)
     chrFile <- .files[grep(paste0("\\b", .seq, "\\b"), .files)]
     rangesdt <- fread(paste0(.dir, chrFile), nThread = 1)[, .SD, .SDcols = 2:4]
 
+    sname <- names(rangesdt)[1]
+    if (!oneBased) rangesdt[, (sname) := get(sname) + 1L]
     ranges <- GRanges(
         rep(.seq, nrow(rangesdt)),
         IRanges(rangesdt[[1]], rangesdt[[2]]),
