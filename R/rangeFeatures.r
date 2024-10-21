@@ -18,22 +18,58 @@ withFeatureSdiff <- function(gr1, gr2) {
 
 }
 
+# does this produce the same output as the thing above?
+# withFeatureSdiff <- function(gr1, gr2) {
+
+#     # compute difference between ranges
+#     .D <- setdiff(gr1, gr2)
+
+#     # intersections of gr1 with .D should be the parts of the ranges in gr1 that don't intersect with gr2
+#     # hence we can directly get their features from gr1 
+#     .ov <- GenomicRanges::findOverlaps(gr1, .D)
+#     dr <- GenomicRanges::pintersect(gr1[S4Vectors::queryHits(.ov)], .D[S4Vectors::subjectHits(.ov)])
+#     dr$feature <- gr1$feature[S4Vectors::queryHits(.ov)]
+#     dr$n <- gr1$n[S4Vectors::subjectHits(.ov)]
+
+#     return(dr)
+
+# }
+
 #' @export
-sumFeature <- function(ov, accgr, newgr) {
+sumFeature <- function(gr) {
 
-    # intersections between overlapping ranges and their sum of feature signal
-    .I <- GenomicRanges::pintersect(accgr[S4Vectors::queryHits(ov)], newgr[S4Vectors::subjectHits(ov)])
-    .I$feature <- accgr$feature[S4Vectors::queryHits(ov)] + newgr$feature[S4Vectors::subjectHits(ov)]
-    .I$n <- accgr$n[S4Vectors::queryHits(ov)] + 1L # 
+    dgr <- GenomicRanges::disjoin(gr, with.revmap = TRUE)
 
-    # get parts that don't intersect from both overlapping & non-overlapping ranges 
-    d1 <- withFeatureSdiff(accgr, .I)
-    d2 <- withFeatureSdiff(newgr, .I)
+    dgr$n <- sapply(dgr$revmap, length)
+    sdt <- data.table::data.table(
+        disIdx = rep(1:length(dgr), dgr$n),
+        fidx = unlist(dgr$revmap, recursive = FALSE, use.names = FALSE)
+    )
+    sdt[, "feature" := gr$feature[fidx]]
 
-    .I$hit <- NULL
-    return(c(.I, d1, d2))
+    dgr$featureSum <- sdt[, list("featureSum" = sum(feature)), by = "disIdx"]$featureSum
+
+    return(dgr)
 
 }
+
+# # assumes disjoint ranges within each of accgr and newgr 
+# #' @export
+# sumFeature <- function(ov, accgr, newgr) {
+
+#     # intersections between overlapping ranges and their sum of feature signal
+#     .I <- GenomicRanges::pintersect(accgr[S4Vectors::queryHits(ov)], newgr[S4Vectors::subjectHits(ov)])
+#     .I$feature <- accgr$feature[S4Vectors::queryHits(ov)] + newgr$feature[S4Vectors::subjectHits(ov)]
+#     .I$n <- accgr$n[S4Vectors::queryHits(ov)] + 1L # 
+
+#     # get parts that don't intersect from both overlapping & non-overlapping ranges 
+#     d1 <- withFeatureSdiff(accgr, .I)
+#     d2 <- withFeatureSdiff(newgr, .I)
+
+#     .I$hit <- NULL
+#     return(c(.I, d1, d2))
+
+# }
 
 #' @export
 frangesLoad <- function(.seq, .dir) {
