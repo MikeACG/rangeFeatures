@@ -72,6 +72,39 @@ sumFeature <- function(gr) {
 # }
 
 #' @export
+loadRanges2dt <- function(.dir, .seq) {
+
+    # first check if .dir is an arrow database
+    isdb <- tryCatch(
+        {
+            arrow::open_dataset(.dir)
+            TRUE
+        },
+        error = function(cnd) FALSE
+    )
+
+    if (isdb) { # load with arrow
+
+        db <- arrow::open_dataset(.dir)
+        dbcols <- names(db$metadata$r$columns)
+        seqIdx <- grep("\\bseqname\\b|\\bseqnames\\b", dbcols)
+        rdt <- db %>% dplyr::filter(!!rlang::parse_expr(dbcols[seqIdx]) == .seq) %>% dplyr::collect()
+        names(rdt)[ncol(rdt)] <- "seqname" # seqname col will always be returned last
+
+    } else { # load from plain files
+
+        .files <- list.files(.dir)
+        seqFile <- .files[grep(paste0("\\b", .seq, "\\b"), .files)]
+        rdt <- fread(paste0(.dir, seqFile), nThread = 1)
+        .colnames <- c("seqname", "start", "end", names(rdt)[-c(1:3)])
+        data.table::setnames(rdt, .colnames)
+
+    }
+
+    return(rdt)
+
+}
+
 frangesLoad <- function(.seq, .dir) {
 
     .files <- list.files(.dir)
