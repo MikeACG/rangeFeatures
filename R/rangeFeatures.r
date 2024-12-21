@@ -139,7 +139,7 @@ getNoOverlapQuery <- function(ov, queryRanges) {
 
     inov <- setdiff(1:length(queryRanges), S4Vectors::queryHits(ov))
     novdt <- data.table::data.table(
-        seqnames = as.character(GenomicRanges::seqnames(queryRanges)[inov]),
+        seqname = as.character(GenomicRanges::seqnames(queryRanges)[inov]),
         start = GenomicRanges::start(queryRanges)[inov],
         end = GenomicRanges::end(queryRanges)[inov],
         iquery = inov
@@ -176,7 +176,7 @@ rangeNumFeature <- function(ov, queryRanges, subjectRanges, allowMiss) {
     qovdt[
         ,
         ':=' (
-            "seqnames" = as.character(GenomicRanges::seqnames(queryRanges)[iquery]),
+            "seqname" = as.character(GenomicRanges::seqnames(queryRanges)[iquery]),
             "start" = GenomicRanges::start(queryRanges)[iquery],
             "end" = GenomicRanges::end(queryRanges)[iquery]
         )
@@ -197,7 +197,7 @@ rangeCatFeature <- function(ov, queryRanges, subjectRanges, allowMiss) {
 
     # make a data table with the overlap results
     ovdt <- data.table::data.table(
-        seqnames = as.character(GenomicRanges::seqnames(queryRanges)[S4Vectors::queryHits(ov)]),
+        seqname = as.character(GenomicRanges::seqnames(queryRanges)[S4Vectors::queryHits(ov)]),
         start = GenomicRanges::start(queryRanges)[S4Vectors::queryHits(ov)],
         end = GenomicRanges::end(queryRanges)[S4Vectors::queryHits(ov)],
         feature = subjectRanges$feature[S4Vectors::subjectHits(ov)]
@@ -209,11 +209,11 @@ rangeCatFeature <- function(ov, queryRanges, subjectRanges, allowMiss) {
 
     # join feature values for queries with multiple hits
     udupdt[, "duplicate" := TRUE]
-    ovdt[udupdt, "duplicate" := i.duplicate, on = c("seqnames", "start", "end")]
+    ovdt[udupdt, "duplicate" := i.duplicate, on = c("seqname", "start", "end")]
     dupdt <- ovdt[order(feature)][ # order is so that joined labels always appear in the same order (permutations are not important, just combinations)
         duplicate == TRUE,
         list("feature" = stringi::stri_join(feature, collapse = "")),
-        by = c("seqnames", "start", "end")
+        by = c("seqname", "start", "end")
     ]
 
     # handle query ranges with no overlap with the subject
@@ -239,7 +239,7 @@ pyriAnnotate <- function(.seqnames, .start, .end, featureStrand, genome) {
     n <- sapply(rangeSites, length)
     siteRanges <- GenomicRanges::GRanges(rep(.seqnames, n), IRanges::IRanges(siteIdxs, siteIdxs))
     sitedt <- data.table::data.table(
-        seqnames = rep(.seqnames, n),
+        seqname = rep(.seqnames, n),
         start = siteIdxs,
         end = siteIdxs,
         ref = as.character(genome[siteRanges], use.names = FALSE),
