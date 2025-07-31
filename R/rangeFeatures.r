@@ -286,11 +286,11 @@ removeDToverlaps <- function(xdt) {
     x <- GenomicRanges::GRanges(xdt$seqname, IRanges::IRanges(xdt$start, xdt$end))
     ov <- GenomicRanges::findOverlaps(x, drop.self = TRUE)
     igr <- GenomicRanges::pintersect(x[S4Vectors::queryHits(ov)], x[S4Vectors::subjectHits(ov)])
-    y <- setdiff(x, igr)
+    y <- GenomicRanges::setdiff(x, igr)
 
     # to get metadata
-    mov <- findOverlaps(y, x)
-    if (sum(duplicated(S4Vectors::queryHits)) > 0) stop("multiple hits when trying to get metadata after subtraction, check input ranges")
+    mov <- GenomicRanges::findOverlaps(y, x)
+    if (sum(duplicated(S4Vectors::queryHits(mov))) > 0) stop("multiple hits when trying to get metadata after subtraction, check input ranges")
     ydt <- data.table::data.table(
         "seqname" = as.character(GenomicRanges::seqnames(y)),
         "start" = GenomicRanges::start(y),
