@@ -296,7 +296,8 @@ removeDToverlaps <- function(xdt) {
         "start" = GenomicRanges::start(y),
         "end" = GenomicRanges::end(y)
     )
-    ydt <- cbind(ydt, xdt[S4Vectors::subjectHits(mov), .SD, .SDcols = setdiff(names(xdt), c("seqname", "start", "end"))])
+    cols <- setdiff(names(xdt), c("seqname", "start", "end"))
+    ydt[S4Vectors::queryHits(mov), (cols) := xdt[S4Vectors::subjectHits(mov), .SD, .SDcols = cols]]
 
     return(ydt)
 
