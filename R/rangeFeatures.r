@@ -263,5 +263,42 @@ txAnnotate <- function(txdt) {
 
 }
 
+# this function reduces all ranges in a data.table according to one of the columns
+#' @export
+reduceDT <- function(xdt, .by) {
 
+    x <- GenomicRanges::GRanges(xdt[[.by]], IRanges::IRanges(xdt$start, xdt$end))
+    y <- GenomicRanges::reduce(x)
+
+    ydt <- data.table::data.table("start" = GenomicRanges::start(y), "end" = GenomicRanges::end(y))
+    ydt[, (.by) := as.character(GenomicRanges::seqnames(y))]
+    cols <- setdiff(names(xdt), c(.by, "start", "end"))
+    ydt[xdt, (cols) := mget(cols), on = .by]
+
+    return(ydt)
+
+}
+
+# this function removes the chunks of the ranges that overlap between themselves
+#' @export
+removeDToverlaps <- function(xdt) {
+
+    x <- GenomicRanges::GRanges(xdt$seqname, IRanges::IRanges(xdt$start, xdt$end))
+    ov <- GenomicRanges::findOverlaps(x, drop.self = TRUE)
+    igr <- GenomicRanges::pintersect(x[S4Vectors::queryHits(ov)], x[S4Vectors::subjectHits(ov)])
+    y <- setdiff(x, igr)
+
+    # to get metadata
+    mov <- findOverlaps(y, x)
+    if (sum(duplicated(S4Vectors::queryHits)) > 0) stop("multiple hits when trying to get metadata after subtraction, check input ranges")
+    ydt <- data.table::data.table(
+        "seqname" = as.character(GenomicRanges::seqnames(y)),
+        "start" = GenomicRanges::start(y),
+        "end" = GenomicRanges::end(y)
+    )
+    ydt <- cbind(ydt, xdt[S4Vectors::subjectHits(mov), .SD, .SDcols = setdiff(names(xdt), c("seqname", "start", "end"))])
+
+    return(ydt)
+
+}
 
